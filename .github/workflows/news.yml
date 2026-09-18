@@ -1,0 +1,42 @@
+name: Linux News Bot
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # كل 15 دقيقة
+  workflow_dispatch: {}       # زر تشغيل يدوي للتجربة
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: تحميل المستودع
+        uses: actions/checkout@v4
+
+      - name: إعداد بايثون
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: تثبيت المكتبات
+        run: pip install feedparser requests deep-translator
+
+      - name: تشغيل البوت
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+        run: python news_bot_actions.py
+
+      - name: حفظ سجل الأخبار المنشورة
+        run: |
+          git config user.name "news-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add posted_news.json
+          if git diff --cached --quiet; then
+            echo "لا أخبار جديدة"
+          else
+            git commit -m "تحديث سجل الأخبار"
+            git push
+          fi
