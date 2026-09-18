@@ -19,6 +19,26 @@ MAX_PER_SOURCE = 5     # أقصى أخبار جديدة من كل مصدر في 
 MAX_AGE_HOURS  = 48    # لا تنشر أخبار أقدم من 48 ساعة
 # ===============================================
 
+def translate(text):
+    """ترجمة عبر MyMemory مع 3 محاولات"""
+    if not text:
+        return ""
+    for attempt in range(3):
+        try:
+            resp = requests.get(
+                "https://api.mymemory.translated.net/get",
+                params={"q": text[:450], "langpair": "en|ar"},
+                timeout=15,
+            )
+            data = resp.json()
+            result = data.get("responseData", {}).get("translatedText", "")
+            if result and "MYMEMORY WARNING" not in result:
+                return result
+        except Exception:
+            pass
+        time.sleep(3)
+    return text  # يرجع الأصل عند الفشل الكامل
+    
 def load_posted():
     if os.path.exists(POSTED_FILE):
         try:
