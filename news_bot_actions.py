@@ -7,7 +7,6 @@ WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
 
 FEEDS = {
     "Phoronix":    "https://www.phoronix.com/rss.php",
-    "OMG! Ubuntu": "https://www.omgubuntu.co.uk/feed",
     "9to5Linux":   "https://9to5linux.com/feed",
     "It's FOSS":   "https://itsfoss.com/rss/",
     "DistroWatch": "https://distrowatch.com/news/news-headlines.xml",
