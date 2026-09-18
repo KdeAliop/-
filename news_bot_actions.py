@@ -20,24 +20,46 @@ MAX_AGE_HOURS  = 48    # لا تنشر أخبار أقدم من 48 ساعة
 # ===============================================
 
 def translate(text):
-    """ترجمة عبر MyMemory مع 3 محاولات"""
+    """ترجمة عبر عدة خدمات مجانية بالتتابع"""
     if not text:
         return ""
-    for attempt in range(3):
+
+    # المحاولة 1: LibreTranslate (مفتوح المصدر)
+    for instance in ["https://translate.fedilab.app/translate",
+                     "https://libretranslate.com/translate"]:
         try:
-            resp = requests.get(
-                "https://api.mymemory.translated.net/get",
-                params={"q": text[:450], "langpair": "en|ar"},
+            resp = requests.post(
+                instance,
+                json={
+                    "q": text[:450],
+                    "source": "en",
+                    "target": "ar",
+                    "format": "text"
+                },
                 timeout=15,
             )
-            data = resp.json()
-            result = data.get("responseData", {}).get("translatedText", "")
-            if result and "MYMEMORY WARNING" not in result:
-                return result
+            if resp.status_code == 200:
+                result = resp.json().get("translatedText", "")
+                if result:
+                    return result
         except Exception:
-            pass
-        time.sleep(3)
-    return text  # يرجع الأصل عند الفشل الكامل
+            continue
+
+    # المحاولة 2: MyMemory
+    try:
+        resp = requests.get(
+            "https://api.mymemory.translated.net/get",
+            params={"q": text[:450], "langpair": "en|ar"},
+            timeout=15,
+        )
+        data = resp.json()
+        result = data.get("responseData", {}).get("translatedText", "")
+        if result and "MYMEMORY WARNING" not in result:
+            return result
+    except Exception:
+        pass
+
+    return text  # كل الخدمات فشلت — أرجع الأصل
     
 def load_posted():
     if os.path.exists(POSTED_FILE):
