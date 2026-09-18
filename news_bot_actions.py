@@ -3,8 +3,7 @@ import requests
 import re, json, os, time
 from time import mktime
 
-# ================== الإعدادات ==================
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://discord.com/api/webhooks/1550501824325361775/k27KvE1-UAbDivqDdbiLdrb8doFKbRiSogCEagDauMF0X_MmiLaSRTiwyFZCrcYyviW-")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
 
 FEEDS = {
     "Phoronix":    "https://www.phoronix.com/rss.php",
@@ -15,52 +14,9 @@ FEEDS = {
 }
 
 POSTED_FILE    = "posted_news.json"
-MAX_PER_SOURCE = 5     # أقصى أخبار جديدة من كل مصدر في الدورة
-MAX_AGE_HOURS  = 48    # لا تنشر أخبار أقدم من 48 ساعة
-# ===============================================
+MAX_PER_SOURCE = 5
+MAX_AGE_HOURS  = 48
 
-def translate(text):
-    """ترجمة عبر عدة خدمات مجانية بالتتابع"""
-    if not text:
-        return ""
-
-    # المحاولة 1: LibreTranslate (مفتوح المصدر)
-    for instance in ["https://translate.fedilab.app/translate",
-                     "https://libretranslate.com/translate"]:
-        try:
-            resp = requests.post(
-                instance,
-                json={
-                    "q": text[:450],
-                    "source": "en",
-                    "target": "ar",
-                    "format": "text"
-                },
-                timeout=15,
-            )
-            if resp.status_code == 200:
-                result = resp.json().get("translatedText", "")
-                if result:
-                    return result
-        except Exception:
-            continue
-
-    # المحاولة 2: MyMemory
-    try:
-        resp = requests.get(
-            "https://api.mymemory.translated.net/get",
-            params={"q": text[:450], "langpair": "en|ar"},
-            timeout=15,
-        )
-        data = resp.json()
-        result = data.get("responseData", {}).get("translatedText", "")
-        if result and "MYMEMORY WARNING" not in result:
-            return result
-    except Exception:
-        pass
-
-    return text  # كل الخدمات فشلت — أرجع الأصل
-    
 def load_posted():
     if os.path.exists(POSTED_FILE):
         try:
@@ -77,23 +33,10 @@ def save_posted(posted):
 def clean_html(text):
     return re.sub(r"<[^>]+>", "", text or "").strip()
 
-def translate(text):
-    """ترجمة مع 3 محاولات عند الفشل"""
-    if not text:
-        return ""
-    for _ in range(3):
-        try:
-            return translator.translate(text)
-        except Exception:
-            time.sleep(3)
-    return text
-
 def is_recent(entry):
-    """هل الخبر حديث؟ (يمنع طوفان الأخبار القديمة في أول تشغيل)"""
     try:
         published = mktime(entry.published_parsed)
-        age = (time.time() - published) / 3600
-        return age <= MAX_AGE_HOURS
+        return ((time.time() - published) / 3600) <= MAX_AGE_HOURS
     except Exception:
         return True
 
@@ -108,18 +51,27 @@ def send_embed(title, url, description, source):
         embed["description"] = description[:400]
     try:
         resp = requests.post(WEBHOOK_URL, json={"embeds": [embed]}, timeout=15)
+        if resp.status_code not in (200, 204):
+            print(f"   ⚠️ فشل الإرسال [{resp.status_code}]: {resp.text[:100]}")
         return resp.status_code in (200, 204)
-    except Exception:
+    except Exception as e:
+        print(f"   ⚠️ خطأ اتصال بالويبهوك: {e}")
         return False
 
 def main():
+    if not WEBHOOK_URL:
+        print("❌ WEBHOOK_URL غير موجود في Secrets!")
+        return
+
     posted = load_posted()
+    print(f"📂 سجل المنشور سابقاً: {len(posted)} رابط")
     new_count = 0
 
     for source, url in FEEDS.items():
         sent = 0
         try:
             feed = feedparser.parse(url)
+            total = len(feed.entries)
             for entry in feed.entries:
                 if sent >= MAX_PER_SOURCE:
                     break
@@ -127,20 +79,20 @@ def main():
                 if not link or link in posted or not is_recent(entry):
                     continue
 
-                title   = translate(entry.get("title", "خبر جديد"))
-                summary = translate(clean_html(entry.get("summary", "")))
+                title   = entry.get("title", "خبر جديد")
+                summary = clean_html(entry.get("summary", ""))
 
                 if send_embed(title, link, summary, source):
                     posted.add(link)
                     sent += 1
                     new_count += 1
-
-                time.sleep(2)  # تفادي حظر الترجمة
+                time.sleep(1)
+            print(f"📡 {source}: {total} خبر في الفيد، أُرسل: {sent}")
         except Exception as e:
-            print(f"خطأ في {source}: {e}")
+            print(f"❌ خطأ في {source}: {e}")
 
     save_posted(posted)
-    print(f"✅ تم نشر {new_count} خبر جديد")
+    print(f"{'✅' if new_count else 'ℹ️'} النتيجة: {new_count} خبر جديد")
 
 if __name__ == "__main__":
     main()
