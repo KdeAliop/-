@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
 
       - name: تثبيت المكتبات
-        run: pip install feedparser requests deep-translator
+        run: pip install feedparser requests
 
       - name: تشغيل البوت
         env:
