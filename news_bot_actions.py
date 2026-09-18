@@ -2,7 +2,6 @@ import feedparser
 import requests
 import re, json, os, time
 from time import mktime
-from deep_translator import GoogleTranslator
 
 # ================== الإعدادات ==================
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "https://discord.com/api/webhooks/1550501824325361775/k27KvE1-UAbDivqDdbiLdrb8doFKbRiSogCEagDauMF0X_MmiLaSRTiwyFZCrcYyviW-")
@@ -19,8 +18,6 @@ POSTED_FILE    = "posted_news.json"
 MAX_PER_SOURCE = 5     # أقصى أخبار جديدة من كل مصدر في الدورة
 MAX_AGE_HOURS  = 48    # لا تنشر أخبار أقدم من 48 ساعة
 # ===============================================
-
-translator = GoogleTranslator(source="auto", target="ar")
 
 def load_posted():
     if os.path.exists(POSTED_FILE):
